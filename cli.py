@@ -1,9 +1,12 @@
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
 from enum import Enum, auto
+import os
+import shutil
 
 USERS_FILE = ".users.csv"
 ASSETS_FILE = ".assets.csv"
+
 
 class Command(Enum):
     ADD_USER = auto()
@@ -16,13 +19,14 @@ class Command(Enum):
     def __str__(self):
         return self.name.lower()
 
+
 COMMAND_USAGE = {
     Command.ADD_USER: "add_user <username>",
     Command.ADD_ASSET: "add_asset <username> <asset_name> <value>",
     Command.GET_NETWORTH: "get_networth <username>",
     Command.LIST_USERS: "list_users",
     Command.HELP: "help",
-    Command.EXIT: "exit"
+    Command.EXIT: "exit",
 }
 
 COMMAND_DESCRIPTIONS = {
@@ -31,7 +35,7 @@ COMMAND_DESCRIPTIONS = {
     Command.GET_NETWORTH: "Calculates and displays the net worth of a specific user.",
     Command.LIST_USERS: "Displays a list of all users in the system.",
     Command.HELP: "Displays this help message.",
-    Command.EXIT: "Exits the application."
+    Command.EXIT: "Exits the application.",
 }
 
 COMMAND_EXAMPLES = {
@@ -40,8 +44,9 @@ COMMAND_EXAMPLES = {
     Command.GET_NETWORTH: "get_networth john",
     Command.LIST_USERS: "list_users",
     Command.HELP: "help",
-    Command.EXIT: "exit"
+    Command.EXIT: "exit",
 }
+
 
 def initialize_csv_files():
     try:
@@ -59,6 +64,12 @@ def initialize_csv_files():
 
 def add_user(username):
     users_df = pd.read_csv(USERS_FILE)
+
+    # Check if the username already exists
+    if username in users_df["username"].values:
+        print(f"User {username} already exists. Cannot add duplicate user.")
+        return
+
     new_id = users_df["id"].max() + 1 if not users_df.empty else 0
     new_user = pd.DataFrame({"id": [new_id], "username": [username]})
     users_df = pd.concat([users_df, new_user], ignore_index=True)
@@ -100,6 +111,7 @@ def get_networth(username):
     current_date = date.today().strftime("%Y-%m-%d")
     print(f"Networth of {username} on {current_date} is ${formatted_value}")
 
+
 def list_users():
     try:
         users_df = pd.read_csv(USERS_FILE)
@@ -110,6 +122,7 @@ def list_users():
             print(users_df.to_string(index=False))
     except FileNotFoundError:
         print("Users file not found. No users have been added yet.")
+
 
 def print_help():
     help_text = "Net Worth Tracker CLI - Available Commands:\n\n"
@@ -127,23 +140,52 @@ def parse_command(input_string):
     parts = input_string.split()
     if not parts:
         return None, []
-    
+
     command_str = parts[0].lower()
-    
+
     try:
         command = next(cmd for cmd in Command if str(cmd) == command_str)
     except StopIteration:
         return None, []
-    
+
     return command, parts[1:]
+
+
+def create_backup(files_to_backup):
+    # Generate timestamp for the backup folder
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
+
+    # Create main backup folder if it doesn't exist
+    main_backup_folder = "backups"
+    if not os.path.exists(main_backup_folder):
+        os.mkdir(main_backup_folder)
+
+    # Create timestamped subfolder
+    backup_subfolder = os.path.join(main_backup_folder, timestamp)
+    os.mkdir(backup_subfolder)
+
+    # Copy files to the backup subfolder
+    for file in files_to_backup:
+        if os.path.exists(file):
+            shutil.copy2(file, backup_subfolder)
+            print(f"Backed up: {file} to {backup_subfolder}")
+        else:
+            print(f"Warning: {file} not found. Skipping backup.")
+
+    print(f"Backup completed in folder: {backup_subfolder}")
+
 
 def main():
     initialize_csv_files()
     print("Welcome to the Net Worth Tracker CLI!")
     print_help()
 
+    create_backup([USERS_FILE, ASSETS_FILE])
+
     while True:
-        input_string = input("Enter command (or 'exit' to quit, or 'help' to list the API): ")
+        input_string = input(
+            "Enter command (or 'exit' to quit, or 'help' to list the API): "
+        )
         command, args = parse_command(input_string)
 
         if command == Command.EXIT:
