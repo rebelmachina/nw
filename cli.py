@@ -3,6 +3,8 @@ from datetime import date, datetime
 from enum import Enum, auto
 import os
 import shutil
+from rich.console import Console
+from rich.text import Text
 
 USERS_FILE = ".users.csv"
 ASSETS_FILE = ".assets.csv"
@@ -46,6 +48,37 @@ COMMAND_EXAMPLES = {
     Command.HELP: "help",
     Command.EXIT: "exit",
 }
+
+
+def display_networth(username, date, networth, max_line_length):
+    console = Console()
+
+    # Define the date in the required format
+
+    # Create text components with different styles
+    user_text = Text(username, style="bold blue")
+    date_text = Text(date, style="bold yellow")
+    networth_text = Text(f"${networth:,.2f}", style="bold green")
+
+    # Calculate the number of dots required to fill the line
+    base_str = f"Networth of {username} on {date} "
+    remaining_length = (
+        max_line_length - len(base_str) - len(f"{networth:,.2f}") - 2
+    )  # adjusting for length of networth
+    dots = "." * remaining_length
+
+    # Create a styled output using rich Text object
+    final_text = (
+        Text("Networth of ")
+        + user_text
+        + Text(" on ")
+        + date_text
+        + Text(f" {dots} ")
+        + networth_text
+    )
+
+    # Print the result using rich's console
+    console.print(final_text)
 
 
 def initialize_csv_files():
@@ -107,9 +140,11 @@ def get_networth(username):
     # Calculate total value of latest assets
     total_value = latest_assets["value"].sum()
 
-    formatted_value = "{:,.2f}".format(total_value)
+    # formatted_value = "{:,.2f}".format(total_value)
     current_date = date.today().strftime("%Y-%m-%d")
-    print(f"Networth of {username} on {current_date} is ${formatted_value}")
+
+    display_networth(username, current_date, total_value, 80)
+    # print(f"Networth of {username} on {current_date} is ${formatted_value}")
 
 
 def list_users():
