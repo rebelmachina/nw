@@ -4,6 +4,7 @@ from enum import Enum, auto
 import os
 import shutil
 from rich.console import Console
+from rich.table import Table
 from rich.text import Text
 
 USERS_FILE = ".users.csv"
@@ -15,6 +16,7 @@ class Command(Enum):
     ADD_ASSET = auto()
     GET_NETWORTH = auto()
     LIST_USERS = auto()
+    LIST_ASSETS = auto()
     HELP = auto()
     EXIT = auto()
 
@@ -27,6 +29,7 @@ COMMAND_USAGE = {
     Command.ADD_ASSET: "add_asset <username> <asset_name> <value>",
     Command.GET_NETWORTH: "get_networth <username>",
     Command.LIST_USERS: "list_users",
+    Command.LIST_ASSETS: "list_assets <username>",
     Command.HELP: "help",
     Command.EXIT: "exit",
 }
@@ -36,6 +39,7 @@ COMMAND_DESCRIPTIONS = {
     Command.ADD_ASSET: "Adds a new asset for a specific user.",
     Command.GET_NETWORTH: "Calculates and displays the net worth of a specific user.",
     Command.LIST_USERS: "Displays a list of all users in the system.",
+    Command.LIST_ASSETS: "Lists all assets of a specific user, grouped by asset and sorted chronologically.",
     Command.HELP: "Displays this help message.",
     Command.EXIT: "Exits the application.",
 }
@@ -45,9 +49,41 @@ COMMAND_EXAMPLES = {
     Command.ADD_ASSET: "add_asset john savings 5000",
     Command.GET_NETWORTH: "get_networth john",
     Command.LIST_USERS: "list_users",
+    Command.LIST_ASSETS: "list_assets john",
     Command.HELP: "help",
     Command.EXIT: "exit",
 }
+
+
+def list_assets(username):
+    console = Console()
+    assets_df = pd.read_csv(ASSETS_FILE)
+    assets_df["date"] = pd.to_datetime(assets_df["date"])
+
+    # Filter assets for the given user
+    user_assets = assets_df[assets_df["username"] == username]
+
+    if user_assets.empty:
+        console.print(f"No assets found for user [bold blue]{username}[/bold blue].")
+        return
+
+    # Sort assets by date
+    user_assets = user_assets.sort_values("date")
+
+    # Group assets by asset name
+    grouped_assets = user_assets.groupby("asset")
+
+    table = Table(title=f"Assets for [bold blue]{username}[/bold blue]")
+    table.add_column("Asset", style="cyan", no_wrap=True)
+    table.add_column("Date", style="magenta")
+    table.add_column("Value", style="green", justify="right")
+
+    for asset, group in grouped_assets:
+        table.add_row(f"[bold]{asset}[/bold]", "", "")
+        for _, row in group.iterrows():
+            table.add_row("", row["date"].strftime("%Y-%m-%d"), f"${row['value']:,.2f}")
+
+    console.print(table)
 
 
 def display_networth(username, date, networth, max_line_length):
@@ -234,6 +270,8 @@ def main():
             get_networth(args[0])
         elif command == Command.LIST_USERS and len(args) == 0:
             list_users()
+        elif command == Command.LIST_ASSETS and len(args) == 1:
+            list_assets(args[0])
         elif command == Command.HELP and len(args) == 0:
             print_help()
         else:
